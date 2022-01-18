@@ -1037,7 +1037,9 @@ class AirCon : public esphome::Component, public esphome::climate::Climate {
                             stateFloat = big_info_body->ambient_temperature_int - 0x20 + (float)(big_info_body->ambient_temperature_frac & 0x0f) / 10.0;
                             stateChangedFlag = stateChangedFlag || (_current_ac_state.temp_ambient != stateFloat);
                             _current_ac_state.temp_ambient = stateFloat;
+                            stateChangedFlag = stateChangedFlag || (_current_ac_state.is_defrost != (big_info_body->defrost_mode == 0x20));
                             _current_ac_state.is_defrost = big_info_body->defrost_mode == 0x20;
+                            stateChangedFlag = stateChangedFlag || (_current_ac_state.invertor_power != big_info_body->invertor_power);
                             _current_ac_state.invertor_power = big_info_body->invertor_power;
                             
                             // некая температура из наружного блока, скорее всего температура испарителя
