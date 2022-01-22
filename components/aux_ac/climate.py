@@ -34,6 +34,7 @@ CONF_SUPPORTED_SWING_MODES = 'supported_swing_modes'
 CONF_SUPPORTED_PRESETS = 'supported_presets'
 CONF_SHOW_ACTION = 'show_action'
 CONF_INDOOR_TEMPERATURE = 'indoor_temperature'
+CONF_OUTDOOR_TEMPERATURE = 'outdoor_temperature'
 CONF_DEFROST_SENSOR = 'defrost_sensor'
 CONF_INVERTOR_POWER = 'invertor_power'
 
@@ -109,6 +110,17 @@ CONFIG_SCHEMA = cv.All(
                     cv.Optional(CONF_INTERNAL, default="true"): cv.boolean,
                 }
             ),
+            cv.Optional(CONF_OUTDOOR_TEMPERATURE): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                icon=ICON_THERMOMETER,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ).extend(
+                {
+                    cv.Optional(CONF_INTERNAL, default="true"): cv.boolean,
+                }
+            ),
             cv.Optional(CONF_SUPPORTED_MODES): cv.ensure_list(validate_modes),
             cv.Optional(CONF_SUPPORTED_SWING_MODES): cv.ensure_list(validate_swing_modes),
             cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(validate_presets),
@@ -145,6 +157,11 @@ async def to_code(config):
         conf3 = config[CONF_INVERTOR_POWER]
         sens3 = await sensor.new_sensor(conf3)
         cg.add(var.set_invertor_power_sensor(sens3))
+
+    if CONF_OUTDOOR_TEMPERATURE in config:
+        conf4 = config[CONF_OUTDOOR_TEMPERATURE]
+        sens4 = await sensor.new_sensor(conf4)
+        cg.add(var.set_outdoor_temperature_sensor(sens4))
 
     cg.add(var.set_period(config[CONF_PERIOD].total_milliseconds))
     cg.add(var.set_show_action(config[CONF_SHOW_ACTION]))

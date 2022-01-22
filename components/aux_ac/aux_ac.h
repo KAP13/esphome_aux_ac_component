@@ -200,19 +200,11 @@ struct packet_big_info_body_t {
                                         //          Tin - целая часть температуры
                                         //          Tid - десятичная часть температуры
     uint8_t zero3;          // всегда 0x00 
-    uint8_t outdoor_temperature;        // этот байт как-то связан с температурой во внешнем блоке. Требуются дополнительные исследования.
-                                        //      При выключенном сплите характер изменения значения примерно соответствует изменению температуры на улице.
-                                        //      При включенном сплите значение может очень сильно скакать.
-                                        //      По схеме wiring diagram сплит-системы, во внешнем блоке есть термодатчик, отслеживающий температуру испарителя.
-                                        //      Возможно, этот байт как раз и отражает изменение температуры на испарителе.
-                                        //      Но я не смог разобраться, как именно перевести эти значения в градусы.
-                                        //      Кроме того, зимой даже в минусовую температуру этот байт не уходит ниже 0x33 по крайней мере
-                                        //      для температур в диапазоне -5..-10 градусов Цельсия.
+    uint8_t zero6;          // для RoyalClima18HNI всегда 0x00
     uint8_t zero4;          // всегда 0x00 
     uint8_t zero5;          // всегда 0x00 
-    uint8_t zero6;          // всегда 0x00 
-							// для RoyalClima18HNI: похоже на какую-то температуру, точно неизвестно
-							// температура внешнего теплообменника влияет на это значение (при работе на обогрев - понижает, при охлаждении или при разморозке - повышает)
+    uint8_t outdoor_temperature;
+							// для RoyalClima18HNI: температура на внешнем блокеё
     uint8_t zero7;          // всегда 0x00 
 							// для RoyalClima18HNI: 0x20
     uint8_t zero8;          // всегда 0x00 
@@ -1037,15 +1029,17 @@ class AirCon : public esphome::Component, public esphome::climate::Climate {
                             stateFloat = big_info_body->ambient_temperature_int - 0x20 + (float)(big_info_body->ambient_temperature_frac & 0x0f) / 10.0;
                             stateChangedFlag = stateChangedFlag || (_current_ac_state.temp_ambient != stateFloat);
                             _current_ac_state.temp_ambient = stateFloat;
+
+                            // режим разморозки
                             stateChangedFlag = stateChangedFlag || (_current_ac_state.is_defrost != (big_info_body->defrost_mode == 0x20));
                             _current_ac_state.is_defrost = big_info_body->defrost_mode == 0x20;
+
+                            // мощность инвертора
                             stateChangedFlag = stateChangedFlag || (_current_ac_state.invertor_power != big_info_body->invertor_power);
                             _current_ac_state.invertor_power = big_info_body->invertor_power;
                             
-                            // некая температура из наружного блока, скорее всего температура испарителя
-                            // TODO: формула расчета неправильная! Нужно исследовать на опыте, какая температура при каких условиях
-                            //stateFloat = big_info_body->outdoor_temperature - 0x20;
-                            stateFloat = big_info_body->outdoor_temperature;
+                            // температура из наружного блока
+                            stateFloat = big_info_body->outdoor_temperature - 0x20;
                             stateChangedFlag = stateChangedFlag || (_current_ac_state.temp_outdoor != stateFloat);
                             _current_ac_state.temp_outdoor = stateFloat;
 
@@ -1568,9 +1562,7 @@ class AirCon : public esphome::Component, public esphome::climate::Climate {
         esphome::sensor::Sensor *sensor_indoor_temperature_ = new esphome::sensor::Sensor();
         esphome::binary_sensor::BinarySensor *sensor_defrost_ = new esphome::binary_sensor::BinarySensor();
         esphome::sensor::Sensor *sensor_invertor_power_ = new esphome::sensor::Sensor();
-        // esphome::sensor::Sensor *sensor_indoor_temperature_ = nullptr;
-        // TODO: если расшифруем формулу для уличной температуры, то можно будет вернуть
-        //esphome::sensor::Sensor *sensor_outdoor_temperature = new esphome::sensor::Sensor();
+        esphome::sensor::Sensor *sensor_outdoor_temperature_ = new esphome::sensor::Sensor();
 
     public:
         // инициализация объекта
@@ -1597,6 +1589,7 @@ class AirCon : public esphome::Component, public esphome::climate::Climate {
         float get_setup_priority() const override { return esphome::setup_priority::DATA; }
 
         void set_indoor_temperature_sensor(sensor::Sensor *temperature_sensor) { sensor_indoor_temperature_ = temperature_sensor; }
+        void set_outdoor_temperature_sensor(sensor::Sensor *temperature_sensor) { sensor_outdoor_temperature_ = temperature_sensor; }
         void set_defrost_sensor(binary_sensor::BinarySensor *defrost_sensor) { sensor_defrost_ = defrost_sensor; }
         void set_invertor_power_sensor(sensor::Sensor *invertor_power_sensor) { sensor_invertor_power_ = invertor_power_sensor; }
 
@@ -1851,8 +1844,8 @@ class AirCon : public esphome::Component, public esphome::climate::Climate {
             if (sensor_invertor_power_ != nullptr)
                 sensor_invertor_power_->publish_state(_current_ac_state.invertor_power);
             // температура уличного блока
-            // TODO: если расшифруем формулу для уличной температуры, то можно будет вернуть
-            //sensor_outdoor_temperature->publish_state(_current_ac_state.temp_outdoor);
+            if (sensor_outdoor_temperature_ != nullptr)
+            sensor_outdoor_temperature_->publish_state(_current_ac_state.temp_outdoor);
         }
 
         // вывод в дебаг текущей конфигурации компонента
